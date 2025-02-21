@@ -1,119 +1,140 @@
 // src/components/WizardContainer.js
 import React, { useState } from 'react';
 
-// Import your step components:
 import FileUploadStep from './FileUploadStep';
-import EmailValidityStep from './EmailValidityStep';
-import EmailValidityCheck2Step from './EmailValidityCheck2Step';
 import FirstNameCheckStep from './FirstNameCheckStep';
 import LastNameCheckStep from './LastNameCheckStep';
+import DisplayFieldsStep from './DisplayFieldsStep';
+import EmailValidityStep from './EmailValidityStep';
+import EmailValidityCheck2Step from './EmailValidityCheck2Step';
 
 const WizardContainer = () => {
   const [currentStep, setCurrentStep] = useState(1);
 
-  // The wizardData object holds all relevant data across steps
+  // Keep original file data separate from the mutable sheet data.
   const [wizardData, setWizardData] = useState({
-    sheetData: [],
+    originalFileData: [],     // raw data from the file upload, never changed
+    sheetData: [],            // a mutable version if needed
     columnHeaders: [],
     emailColumn: '',
     additionalEmailColumn: '',
-    // You can add more fields if needed
+    hasSecondaryLastName: false
   });
 
   const handleExit = () => {
     alert('Exiting wizard...');
-    // Additional exit logic, e.g. reset state or navigate away
+    // Additional exit logic can go here.
   };
 
   return (
     <div className="wizard-container" style={{ padding: '1rem' }}>
+
       {/* Step 1: File Upload */}
       {currentStep === 1 && (
         <FileUploadStep
           onExit={handleExit}
           saveFileData={(file, rowCount, headers, sheetData) => {
-            // Called when user successfully uploads & parses the file
-            // We store the parsed sheetData and columnHeaders in wizardData
+            // Store both originalFileData and sheetData for potential usage
             setWizardData({
               ...wizardData,
-              sheetData: sheetData,
+              originalFileData: sheetData,
+              sheetData,
               columnHeaders: headers
             });
-            // Move to next step
             setCurrentStep(2);
           }}
         />
       )}
 
-      {/* Step 2: Email Mapping */}
+      {/* Step 2: First Name Check */}
       {currentStep === 2 && (
-        <EmailValidityStep
+        <FirstNameCheckStep
+          // If you want consistent re-computations from original data:
+          sheetData={wizardData.originalFileData}
           columnHeaders={wizardData.columnHeaders}
-          onSubmit={(primaryCol, secondaryCol) => {
-            // The user picks which columns correspond to the email fields
+          onExit={handleExit}
+          onBack={() => setCurrentStep(1)}
+          onMappingSubmit={(newData) => {
+            // Optionally store the result in wizardData.sheetData
             setWizardData({
               ...wizardData,
-              emailColumn: primaryCol,
-              additionalEmailColumn: secondaryCol
+              sheetData: newData
             });
-            setCurrentStep(3);
           }}
-          onBack={() => setCurrentStep(1)}
-          onExit={handleExit}
+          onContinue={() => setCurrentStep(3)}
         />
       )}
 
-      {/* Step 3: Email Validity Check 2 */}
+      {/* Step 3: Last Name Check */}
       {currentStep === 3 && (
-        <EmailValidityCheck2Step
-          sheetData={wizardData.sheetData}
+        <LastNameCheckStep
+          // Also pass the original data if you want consistent re-computations
+          sheetData={wizardData.originalFileData}
           columnHeaders={wizardData.columnHeaders}
-          emailColumn={wizardData.emailColumn}
-          additionalEmailColumn={wizardData.additionalEmailColumn}
           onExit={handleExit}
           onBack={() => setCurrentStep(2)}
+          onMappingSubmit={(newData, hasSecondary) => {
+            // Store the newly computed data if needed
+            setWizardData({
+              ...wizardData,
+              sheetData: newData,
+              hasSecondaryLastName: hasSecondary
+            });
+          }}
           onContinue={() => setCurrentStep(4)}
         />
       )}
 
-      {/* Step 4: First Name Check */}
+      {/* Step 4: Display Fields Step */}
       {currentStep === 4 && (
-        <FirstNameCheckStep
-          sheetData={wizardData.sheetData}
+        <DisplayFieldsStep
+          // If you want consistent re-computations, again use originalFileData
+          sheetData={wizardData.originalFileData}
           columnHeaders={wizardData.columnHeaders}
+          hasSecondaryLastName={wizardData.hasSecondaryLastName}
           onExit={handleExit}
-          // If you want the user to go back to step 3
           onBack={() => setCurrentStep(3)}
-          // When user submits the first name mapping, update sheetData in wizardData
           onMappingSubmit={(newData) => {
-            setWizardData({ ...wizardData, sheetData: newData });
-            // Do not jump automatically to step 5 here if you want them to see the sample results
-            // But if you do want to jump automatically, you can do so:
-            // setCurrentStep(5);
+            setWizardData({
+              ...wizardData,
+              sheetData: newData
+            });
           }}
           onContinue={() => setCurrentStep(5)}
         />
       )}
 
-      {/* Step 5: Last Name Check */}
+      {/* Step 5: Email Mapping */}
       {currentStep === 5 && (
-        <LastNameCheckStep
-          sheetData={wizardData.sheetData}
+        <EmailValidityStep
           columnHeaders={wizardData.columnHeaders}
-          onExit={handleExit}
-          // If you want them to go back to step 4
-          onBack={() => setCurrentStep(4)}
-          onMappingSubmit={(newData) => {
-            // Store the new sheet data with "Last Name" column computed
-            setWizardData({ ...wizardData, sheetData: newData });
-            // Again, do not automatically jump if you want them to see the sample
-            // setCurrentStep(6);
+          onSubmit={(primaryCol, secondaryCol) => {
+            setWizardData({
+              ...wizardData,
+              emailColumn: primaryCol,
+              additionalEmailColumn: secondaryCol
+            });
+            setCurrentStep(6);
           }}
-          onContinue={() => setCurrentStep(6)}
+          onBack={() => setCurrentStep(4)}
+          onExit={handleExit}
         />
       )}
 
-      {/* Additional steps could be added for step 6, 7, etc. */}
+      {/* Step 6: Email Validity Check 2 */}
+      {currentStep === 6 && (
+        <EmailValidityCheck2Step
+          // If you want to fix invalid emails in the mutable data:
+          sheetData={wizardData.sheetData}
+          columnHeaders={wizardData.columnHeaders}
+          emailColumn={wizardData.emailColumn}
+          additionalEmailColumn={wizardData.additionalEmailColumn}
+          onExit={handleExit}
+          onBack={() => setCurrentStep(5)}
+          onContinue={() => setCurrentStep(7)} // or the next step if you have one
+        />
+      )}
+
       <p>Current Step: {currentStep}</p>
     </div>
   );
